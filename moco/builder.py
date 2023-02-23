@@ -1,6 +1,8 @@
+import math
 import numpy as np
 import mindspore as ms
 from mindspore import nn, ops, Tensor, Parameter
+from mindspore.common import initializer as init
 
 _momentum_update_parameter = ops.MultitypeFuncGraph("momentum_update_parameter")
 
@@ -9,6 +11,22 @@ _momentum_update_parameter = ops.MultitypeFuncGraph("momentum_update_parameter")
 def momentum_update_parameter(m, encoder_k, encoder_q):
     value = ops.assign(encoder_k, encoder_k * m + encoder_q * (1.0 - m))
     return value
+
+
+def torch_reset_parameters(m):
+    if isinstance(m, nn.Conv2d):
+        m.weight.set_data(init.initializer(init.HeUniform(math.sqrt(5)), m.weight.shape))
+        if m.bias is not None:
+            fan_in, _ = init._calculate_fan_in_and_fan_out(m.weight.shape)
+            if fan_in != 0:
+                bound = 1 / math.sqrt(fan_in)
+                m.bias.set_data(init.initializer(init.Uniform(bound), m.bias.shape))
+    elif isinstance(m, nn.Dense):
+        m.weight.set_data(init.initializer(init.HeUniform(math.sqrt(5)), m.weight.shape))
+        if m.bias is not None:
+            fan_in, _ = init._calculate_fan_in_and_fan_out(m.weight.shape)
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            m.bias.set_data(init.initializer(init.Uniform(bound), m.bias.shape))
 
 
 class MoCo(nn.Cell):
@@ -47,6 +65,8 @@ class MoCo(nn.Cell):
                 nn.ReLU(),
                 self.encoder_k.classifier
             ])
+        for _, cell in self.cells_and_names():
+            torch_reset_parameters(cell)
 
         # `get_parameters` invoke `yield` which is not supported in `construct`, we have to cache parameters of encoder
         self.params_q = list(self.encoder_q.get_parameters())
