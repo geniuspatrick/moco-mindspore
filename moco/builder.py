@@ -191,10 +191,10 @@ class MoCoTrainStep(nn.TrainOneStepCell):
         # here we update the key encoder and compute key features before compute query features, but it's ok.
         success = self.network._backbone._momentum_update_key_encoder()  # update the key encoder
         im_k = ops.depend(im_k, success)
-        im_k = self.network._backbone._batch_shuffle_ddp(im_k)  # shuffle for making use of BN
+        im_k = self.network._backbone._batch_shuffle_ddp(im_k, idx_shuffle.view(-1))  # shuffle for making use of BN
         k = self.network._backbone.encoder_k(im_k)  # keys: NxC
-        k = self.network._backbone.normalize(k, dim=1)
-        k = self.network._backbone._batch_unshuffle_ddp(k, idx_unshuffle)  # undo shuffle
+        k = self.network._backbone.normalize(k)
+        k = self.network._backbone._batch_unshuffle_ddp(k, idx_unshuffle.view(-1))  # undo shuffle
 
         loss = self.network(im_q, k, label)
         k = ops.depend(k, loss)

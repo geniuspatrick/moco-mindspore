@@ -18,7 +18,7 @@ from moco.logger import setup_logger, TrainMonitor
 
 model_names = ["resnet50"]
 
-parser = argparse.ArgumentParser(description='MindSpore Linear Classification')
+parser = argparse.ArgumentParser(description='MindSpore Unsupervised Training')
 group = parser.add_argument_group('OpenI')
 group.add_argument('--device_target', type=str, default='Ascend')
 group.add_argument('--data_url', type=str, default='/cache/data', help='obs path to dataset')
@@ -34,23 +34,25 @@ parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('-b', '--batch_size', default=256, type=int, metavar='N',
+parser.add_argument('-b', '--batch-size', default=256, type=int, metavar='N',
                     help='mini-batch size (default: 256), this is the total batch size of all GPUs on the current node '
                          'when using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', '--learning-rate', default=0.03, type=float, metavar='LR',
                     help='initial learning rate', dest='learning_rate')
 parser.add_argument('--milestones', default=[120, 160], nargs='*', type=int,
-                    help='learning rate schedule (when to drop lr by 10X)')
+                    help='learning rate schedule (when to drop lr by 10x)')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum of SGD solver')
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float, metavar='W',
-                    help='weight decay (default: 0.)', dest="weight_decay")
+                    help='weight decay (default: 1e-4)', dest="weight_decay")
 parser.add_argument('-p', '--print-freq', default=100, type=int, metavar='N',
                     help='print frequency (default: 100)')
 parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training')
 parser.add_argument('--distributed', default=True, type=bool,
                     help='if distributed training')
+parser.add_argument('--mode', default=0, type=int,
+                    help='running in GRAPH_MODE(0) or PYNATIVE_MODE(1).')
 parser.add_argument('--amp-level', default='O0', type=str,
                     help='level for auto mixed precision training')
 parser.add_argument('--loss-scale', default=128, type=int,
@@ -59,22 +61,22 @@ parser.add_argument('--dataset-sink-mode', default=True, type=bool,
                     help='whether to sink data')
 
 # moco specific configs:
-parser.add_argument("--moco-dim", default=128, type=int,
-                    help="feature dimension (default: 128)")
-parser.add_argument("--moco-k", default=65536, type=int,
-                    help="queue size; number of negative keys (default: 65536)")
-parser.add_argument("--moco-m", default=0.999, type=float,
-                    help="moco momentum of updating key encoder (default: 0.999)")
-parser.add_argument("--moco-t", default=0.07, type=float,
-                    help="softmax temperature (default: 0.07)")
+parser.add_argument('--moco-dim', default=128, type=int,
+                    help='feature dimension (default: 128)')
+parser.add_argument('--moco-k', default=65536, type=int,
+                    help='queue size; number of negative keys (default: 65536)')
+parser.add_argument('--moco-m', default=0.999, type=float,
+                    help='moco momentum of updating key encoder (default: 0.999)')
+parser.add_argument('--moco-t', default=0.07, type=float,
+                    help='softmax temperature (default: 0.07)')
 
 # options for moco v2
-parser.add_argument("--mlp", action="store_true",
-                    help="use mlp head")
-parser.add_argument("--aug-plus", action="store_true",
-                    help="use moco v2 data augmentation")
-parser.add_argument("--cos", action="store_true",
-                    help="use cosine lr schedule")
+parser.add_argument('--mlp', action='store_true',
+                    help='use mlp head')
+parser.add_argument('--aug-plus', action='store_true',
+                    help='use moco v2 data augmentation')
+parser.add_argument('--cos', action='store_true',
+                    help='use cosine lr schedule')
 
 
 def main():
@@ -130,14 +132,14 @@ def main():
     callbacks = [TrainMonitor(per_print_steps=args.print_freq)]
     if rank_id == 0:
         callbacks.append(ModelCheckpoint(prefix=args.arch, directory=args.output_dir,
-                                         config=CheckpointConfig(save_checkpoint_steps=args.print_freq)))
+                                         config=CheckpointConfig(save_checkpoint_steps=n_batches)))
 
     _logger.info("Start training...")
     # Init Profiler
     # Note that the Profiler should be initialized before model.train
     # profiler = ms.Profiler(output_path='./profiler_data', profile_communication=True, profile_memory=True)
     model.train(args.epochs, train_dataset, callbacks=callbacks, dataset_sink_mode=args.dataset_sink_mode)
-    model.train(5, train_dataset, callbacks=callbacks, dataset_sink_mode=True, sink_size=100)
+    # model.train(5, train_dataset, callbacks=callbacks, dataset_sink_mode=True, sink_size=100)
     # Profiler end
     # profiler.analyse()
 

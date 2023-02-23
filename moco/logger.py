@@ -113,7 +113,7 @@ class TrainMonitor(Callback):
         self.step_time = time.time()
 
     def on_train_step_end(self, run_context):
-        """Print training info as the end of step."""
+        """Print training info at the end of step."""
         cb_params = run_context.original_args()
         step_time = (time.time() - self.step_time) * 1000
         epoch_num = cb_params.epoch_num

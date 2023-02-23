@@ -24,8 +24,8 @@ class GaussianBlur(object):
         return x
 
 
-class TwoCropTransform:
-    """Take two random crops of one iamge as the query and key."""
+class TwoCropsTransform:
+    """Take two random crops of one image as the query and key."""
 
     def __init__(self, base_transform):
         self.base_transform = base_transform
@@ -70,20 +70,20 @@ def create_dataset_moco(dataset_path, aug_plus, batch_size=32, workers=8, rank_i
     dataset = ds.ImageFolderDataset(dataset_path, num_parallel_workers=workers, shuffle=True,
                                     num_shards=device_num, shard_id=rank_id)
 
-    dataset = dataset.map(operation=transforms.Duplicate(), input_columns="image", output_columns=["im_q", "im_k"],
+    dataset = dataset.map(operations=transforms.Duplicate(), input_columns="image", output_columns=["im_q", "im_k"],
                           column_order=["im_q", "im_k", "label"],
                           num_parallel_workers=workers)
-    dataset = dataset.map(operation=trans, input_columns="im_q",
+    dataset = dataset.map(operations=trans, input_columns="im_q",
                           num_parallel_workers=workers)
-    dataset = dataset.map(operation=trans, input_columns="im_k",
+    dataset = dataset.map(operations=trans, input_columns="im_k",
                           num_parallel_workers=workers)
-    dataset = dataset.map(operation=label_trans, input_columns="label",
+    dataset = dataset.map(operations=label_trans, input_columns="label",
                           num_parallel_workers=workers)
-    dataset = dataset.map(operation=transforms.Duplicate(), input_columns="label",
+    dataset = dataset.map(operations=transforms.Duplicate(), input_columns="label",
                           output_columns=["label", "idx"],
                           column_order=["im_q", "im_k", "label", "idx"],
                           num_parallel_workers=workers)
-    dataset = dataset.map(operation=transforms.Duplicate(), input_columns="idx",
+    dataset = dataset.map(operations=transforms.Duplicate(), input_columns="idx",
                           output_columns=["idx_shuffle", "idx_unshuffle"],
                           column_order=["im_q", "im_k", "label", "idx_shuffle", "idx_unshuffle"],
                           num_parallel_workers=workers)
@@ -104,7 +104,7 @@ def create_dataset_lincls(dataset_path, do_train, batch_size=32, workers=32, ran
     if do_train:
         trans = [
             vision.Decode(to_pil=True),
-            vision.RandomResizedCrop(image_size, scale=(0.2, 1.0)),
+            vision.RandomResizedCrop(image_size),
             vision.RandomHorizontalFlip(),
             vision.ToTensor(),
             vision.Normalize(mean=mean, std=std, is_hwc=False),
@@ -123,9 +123,9 @@ def create_dataset_lincls(dataset_path, do_train, batch_size=32, workers=32, ran
 
     label_trans = transforms.TypeCast(ms.int32)
 
-    dataset = dataset.map(operation=trans, input_columns="image",
+    dataset = dataset.map(operations=trans, input_columns="image",
                           num_parallel_workers=workers)
-    dataset = dataset.map(operation=label_trans, input_columns="label",
+    dataset = dataset.map(operations=label_trans, input_columns="label",
                           num_parallel_workers=workers)
 
     # apply batch operations

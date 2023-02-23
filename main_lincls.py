@@ -30,13 +30,13 @@ parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('-b', '--batch_size', default=256, type=int, metavar='N',
+parser.add_argument('-b', '--batch-size', default=256, type=int, metavar='N',
                     help='mini-batch size (default: 256), this is the total batch size of all GPUs on the current node '
                          'when using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', '--learning-rate', default=30, type=float, metavar='LR',
                     help='initial learning rate', dest='learning_rate')
 parser.add_argument('--milestones', default=[60, 80], nargs='*', type=int,
-                    help='learning rate schedule (when to drop lr by 10X)')
+                    help='learning rate schedule (when to drop lr by 10x)')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum of SGD solver')
 parser.add_argument('--wd', '--weight-decay', default=0.0, type=float, metavar='W',
@@ -47,6 +47,8 @@ parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training')
 parser.add_argument('--distributed', default=True, type=bool,
                     help='if distributed training')
+parser.add_argument('--mode', default=0, type=int,
+                    help='running in GRAPH_MODE(0) or PYNATIVE_MODE(1).')
 parser.add_argument('--amp-level', default='O0', type=str,
                     help='level for auto mixed precision training')
 parser.add_argument('--loss-scale', default=128, type=int,
@@ -106,7 +108,7 @@ def main():
     # load from pre-trained, before DistributedDataParallel constructor
     if args.pretrained:
         if os.path.isfile(args.pretrained):
-            print("=> loading checkpoint '{}'".format(args.pretrained))
+            _logger.info("=> loading checkpoint '{}'".format(args.pretrained))
             checkpoint = ms.load_checkpoint(args.pretrained)
 
             # rename moco pre-trained keys
@@ -119,10 +121,10 @@ def main():
                 del checkpoint[k]
 
             msg = ms.load_param_into_net(network, checkpoint)
-            assert set(msg.missing_keys) == {"classifier.weight", "classifier.bias"}
-            print("=> loaded pre-trained model '{}'".format(args.pretrained))
+            assert set(msg) == {"classifier.weight", "classifier.bias"}
+            _logger.info("=> loaded pre-trained model '{}'".format(args.pretrained))
         else:
-            print("=> no checkpoint found at '{}'".format(args.pretrained))
+            _logger.info("=> no checkpoint found at '{}'".format(args.pretrained))
     _logger.info(network.trainable_params())
 
     # define loss function (criterion) and optimizer
@@ -142,10 +144,11 @@ def main():
                  EvalMonitor(model, val_dataset, rank_id, device_num)]
     if rank_id == 0:
         callbacks.append(ModelCheckpoint(prefix=args.arch, directory=args.output_dir,
-                                         config=CheckpointConfig(save_checkpoint_steps=args.print_freq)))
+                                         config=CheckpointConfig(save_checkpoint_steps=n_batches_train)))
 
     _logger.info("Start training...")
     model.train(args.epochs, train_dataset, callbacks=callbacks, dataset_sink_mode=args.dataset_sink_mode)
+    # model.train(args.epochs, train_dataset, callbacks=callbacks, dataset_sink_mode=True, sink_size=2)
 
 
 if __name__ == '__main__':
